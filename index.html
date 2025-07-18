@@ -134,7 +134,6 @@
         import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, setDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         // --- CONFIGURACIÓN DE FIREBASE ---
-        // Se utiliza la configuración proporcionada por el entorno de Canvas
         const firebaseConfig = {
   apiKey: "AIzaSyBP0KXKYCoZbYt5zc48ypyvorjgZHLWhqo",
   authDomain: "personalesahorros-3227f.firebaseapp.com",
@@ -143,7 +142,7 @@
   messagingSenderId: "994651837502",
   appId: "1:994651837502:web:bbd31b007b8ba9c1996d6f",
   measurementId: "G-SXLN9WBPZD"
-            };
+};
 
         // --- INICIALIZACIÓN DE FIREBASE ---
         const app = initializeApp(firebaseConfig);
@@ -434,10 +433,18 @@
         const handleAuthError = (error) => {
             console.error("Error de autenticación:", error);
             const loadingScreen = document.getElementById('loading-screen');
+            let userMessage = "No se pudo autenticar con el servidor. Por favor, recarga la página.";
+
+            if (error.code === 'auth/admin-restricted-operation') {
+                userMessage = "Esta operación está restringida. Por favor, ve a tu Consola de Firebase -> Authentication -> Sign-in method y asegúrate de que el proveedor 'Anónimo' esté habilitado.";
+            } else if (error.code === 'auth/api-key-not-valid') {
+                userMessage = "La clave de API no es válida. Por favor, verifica que la configuración de Firebase en tu código sea correcta.";
+            }
+
             loadingScreen.innerHTML = `
-                <h2 class="text-2xl font-bold text-red-600">Error de Conexión</h2>
-                <p class="text-gray-600 mt-2">No se pudo autenticar con el servidor. Por favor, verifica tu configuración de Firebase o recarga la página.</p>
-                <p class="text-xs text-gray-400 mt-4 font-mono">${error.message}</p>
+                <h2 class="text-2xl font-bold text-red-600">Error de Autenticación</h2>
+                <p class="text-gray-600 mt-2">${userMessage}</p>
+                <p class="text-xs text-gray-400 mt-4 font-mono">Código de error: ${error.code}</p>
             `;
         };
         
