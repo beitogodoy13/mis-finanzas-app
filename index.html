@@ -135,19 +135,17 @@
         
         // --- CONFIGURACIÓN DE FIREBASE ---
         // Se utiliza la configuración proporcionada por el entorno de Canvas
-        const firebaseConfig = {
-  apiKey: "AIzaSyBP0KXKYCoZbYt5zc48ypyvorjgZHLWhqo",
-  authDomain: "personalesahorros-3227f.firebaseapp.com",
-  projectId: "personalesahorros-3227f",
-  storageBucket: "personalesahorros-3227f.firebasestorage.app",
-  messagingSenderId: "994651837502",
-  appId: "1:994651837502:web:bbd31b007b8ba9c1996d6f",
-  measurementId: "G-SXLN9WBPZD"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config) 
+            : {
+                // Configuración de respaldo para desarrollo local si __firebase_config no está disponible
+                apiKey: "AIzaSyBP0KXKYCoZbYt5zc48ypyvorjgZHLWhqo",
+                authDomain: "personalesahorros-3227f.firebaseapp.com",
+                projectId: "personalesahorros-3227f",
+                storageBucket: "personalesahorros-3227f.firebasestorage.app",
+                messagingSenderId: "994651837502",
+                appId: "1:994651837502:web:bbd31b007b8ba9c1996d6f"
+            };
 
         // --- INICIALIZACIÓN DE FIREBASE ---
         const app = initializeApp(firebaseConfig);
