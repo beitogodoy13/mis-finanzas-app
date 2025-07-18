@@ -2,362 +2,456 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mi Control de Finanzas</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Mi Asistente Financiero</title>
     
     <!-- Meta tags para PWA en iOS -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Finanzas">
     
-    <!-- Link al Manifest -->
+    <!-- Link al Manifest y Service Worker -->
     <link rel="manifest" href="manifest.json">
-    
-    <!-- Icono para iOS -->
-    <link rel="apple-touch-icon" href="https://placehold.co/192x192/764ba2/ffffff?text=Finanzas">
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/7C3AED/ffffff?text=Finanzas">
 
+    <!-- Scripts de Firebase y Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
+        body { font-family: 'Inter', sans-serif; }
+        .goal-card { background: linear-gradient(135deg, #8B5CF6 0%, #C084FC 100%); }
+        .btn-float {
+            box-shadow: 0 10px 20px rgba(0,0,0,0.19), 0 6px 6px rgba(0,0,0,0.23);
         }
-        /* Estilo para un scrollbar más sutil */
-        ::-webkit-scrollbar {
-            width: 8px;
+        .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.5);
+            transition: opacity 0.3s ease;
         }
-        ::-webkit-scrollbar-track {
-            background: #f1f1f1;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #555;
-        }
-        .goal-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .modal-content {
+            transition: transform 0.3s ease;
         }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-800">
+<body class="bg-gray-50 text-gray-800">
 
-    <div class="container mx-auto p-4 md:p-8 max-w-4xl">
-        <header class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-gray-900">Control Financiero Personal</h1>
-            <p class="text-gray-600 mt-2">Registra tus movimientos y alcanza tus metas de ahorro.</p>
+    <!-- Contenedor Principal -->
+    <div id="app-container" class="container mx-auto p-4 max-w-6xl hidden">
+        
+        <header class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-900">Resumen</h1>
+            <div class="text-xs text-gray-500 text-right">
+                <p>ID de Sesión:</p>
+                <p id="user-id" class="font-mono"></p>
+            </div>
         </header>
 
-        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            
-            <!-- Columna Izquierda: Resumen y Metas -->
-            <div class="lg:col-span-1 space-y-8">
-                
-                <!-- Card de Saldo Actual -->
-                <div class="bg-white p-6 rounded-2xl shadow-lg">
-                    <h2 class="text-xl font-bold mb-4">Resumen</h2>
-                    <p class="text-gray-600">Saldo Actual</p>
-                    <p id="balance" class="text-4xl font-extrabold text-gray-900 mt-2">$0.00</p>
-                </div>
+        <main class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
-                <!-- Card de Meta de Ahorro -->
-                <div id="goal-section" class="bg-white p-6 rounded-2xl shadow-lg">
-                    <h2 class="text-xl font-bold mb-4">Meta de Ahorro</h2>
-                    <div id="goal-display" class="hidden">
-                        <div class="goal-card text-white p-6 rounded-xl mb-4">
-                            <p class="font-semibold text-lg" id="goal-name-display"></p>
-                            <p class="text-3xl font-bold" id="goal-progress-amount"></p>
-                            <p class="text-sm opacity-80" id="goal-target-amount"></p>
-                        </div>
-                        <div class="w-full bg-gray-200 rounded-full h-4 mb-2">
-                            <div id="goal-progress-bar" class="bg-green-500 h-4 rounded-full" style="width: 0%;"></div>
-                        </div>
-                        <p class="text-sm text-center text-gray-600 mb-4" id="goal-percentage">0%</p>
-                        
-                        <form id="add-savings-form">
-                            <input type="number" id="savings-amount" placeholder="Aportar a la meta" class="w-full p-3 border border-gray-300 rounded-lg mb-2" required step="0.01">
-                            <button type="submit" class="w-full bg-blue-600 text-white p-3 rounded-lg font-semibold hover:bg-blue-700 transition">Aportar</button>
-                        </form>
-                         <button id="delete-goal-btn" class="w-full bg-red-500 text-white p-2 rounded-lg font-semibold hover:bg-red-600 transition mt-2 text-sm">Eliminar Meta</button>
-                    </div>
-                    <div id="setup-goal">
-                        <p class="text-gray-600 mb-4">Aún no has definido una meta.</p>
-                        <form id="goal-form">
-                            <input type="text" id="goal-name" placeholder="Nombre de la meta (ej. Viaje)" class="w-full p-3 border border-gray-300 rounded-lg mb-2" required>
-                            <input type="number" id="goal-total" placeholder="Monto total a ahorrar" class="w-full p-3 border border-gray-300 rounded-lg mb-2" required step="0.01">
-                            <button type="submit" class="w-full bg-indigo-600 text-white p-3 rounded-lg font-semibold hover:bg-indigo-700 transition">Establecer Meta</button>
-                        </form>
-                    </div>
+            <!-- Card de Saldo Actual -->
+            <div class="lg:col-span-1 md:col-span-2 bg-white p-6 rounded-2xl shadow-md">
+                <p class="text-gray-600">Saldo Actual</p>
+                <p id="balance" class="text-5xl font-extrabold text-gray-900 mt-2">$0.00</p>
+            </div>
+
+            <!-- Card de Meta de Ahorro -->
+            <div id="goal-section" class="bg-white p-6 rounded-2xl shadow-md">
+                <!-- Contenido de la meta se renderiza con JS -->
+            </div>
+
+            <!-- Card de Análisis Inteligente -->
+            <div class="bg-white p-6 rounded-2xl shadow-md">
+                <h2 class="text-xl font-bold mb-4">Análisis y Consejos</h2>
+                <div id="insights" class="space-y-3 text-sm text-gray-700">
+                    <!-- Los consejos se insertarán aquí -->
                 </div>
             </div>
 
-            <!-- Columna Derecha: Transacciones -->
-            <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-lg">
-                <h2 class="text-xl font-bold mb-4">Nueva Transacción</h2>
-                <form id="transaction-form" class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
-                    <div class="md:col-span-2">
-                        <label for="description" class="block text-sm font-medium text-gray-700">Descripción</label>
-                        <input type="text" id="description" class="mt-1 w-full p-3 border border-gray-300 rounded-lg" required>
-                    </div>
-                    <div>
-                        <label for="amount" class="block text-sm font-medium text-gray-700">Monto</label>
-                        <input type="number" id="amount" class="mt-1 w-full p-3 border border-gray-300 rounded-lg" required step="0.01">
-                    </div>
-                    <div>
-                        <label for="type" class="block text-sm font-medium text-gray-700">Tipo</label>
-                        <select id="type" class="mt-1 w-full p-3 border border-gray-300 rounded-lg bg-white">
-                            <option value="income">Ingreso</option>
-                            <option value="expense">Gasto</option>
-                        </select>
-                    </div>
-                    <div class="md:col-span-2">
-                         <button type="submit" class="w-full bg-green-600 text-white p-3 rounded-lg font-semibold hover:bg-green-700 transition">Agregar Transacción</button>
-                    </div>
-                </form>
+            <!-- Gráfico de Gastos por Categoría -->
+            <div class="md:col-span-1 lg:col-span-1 bg-white p-6 rounded-2xl shadow-md">
+                <h2 class="text-xl font-bold mb-4">Gastos por Categoría</h2>
+                <canvas id="category-chart"></canvas>
+            </div>
 
-                <hr class="my-8">
-
+            <!-- Historial de Transacciones -->
+            <div class="md:col-span-2 lg:col-span-2 bg-white p-6 rounded-2xl shadow-md">
                 <h2 class="text-xl font-bold mb-4">Historial de Transacciones</h2>
-                <div id="transaction-list" class="space-y-3 max-h-96 overflow-y-auto pr-2">
+                <div id="transaction-list" class="space-y-3 max-h-[400px] overflow-y-auto pr-2">
                     <!-- Las transacciones se insertarán aquí -->
                 </div>
             </div>
+
         </main>
     </div>
+    
+    <!-- Botón Flotante para Añadir Transacción -->
+    <button id="add-transaction-btn" class="btn-float fixed bottom-6 right-6 bg-purple-600 text-white rounded-full w-16 h-16 flex items-center justify-center text-3xl font-light hover:bg-purple-700 transition hidden">+</button>
 
-    <script>
-        // --- REGISTRO DEL SERVICE WORKER PARA PWA ---
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(registration => console.log('Service Worker registrado con éxito:', registration))
-                    .catch(error => console.log('Error al registrar Service Worker:', error));
-            });
-        }
+    <!-- Modal para Nueva Transacción -->
+    <div id="transaction-modal" class="modal-backdrop fixed inset-0 flex items-center justify-center p-4 hidden">
+        <div class="modal-content bg-white w-full max-w-md p-6 rounded-2xl shadow-xl transform scale-95">
+            <h2 class="text-xl font-bold mb-6">Nueva Transacción</h2>
+            <form id="transaction-form">
+                <input type="text" id="description" placeholder="Descripción" class="w-full p-3 mb-4 border border-gray-300 rounded-lg" required>
+                <input type="number" id="amount" placeholder="Monto" class="w-full p-3 mb-4 border border-gray-300 rounded-lg" required step="0.01">
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <select id="type" class="w-full p-3 border border-gray-300 rounded-lg bg-white">
+                        <option value="expense">Gasto</option>
+                        <option value="income">Ingreso</option>
+                    </select>
+                    <select id="category" class="w-full p-3 border border-gray-300 rounded-lg bg-white">
+                        <option value="Comida">Comida</option>
+                        <option value="Transporte">Transporte</option>
+                        <option value="Vivienda">Vivienda</option>
+                        <option value="Ocio">Ocio</option>
+                        <option value="Salud">Salud</option>
+                        <option value="Ropa">Ropa</option>
+                        <option value="Sueldo">Sueldo</option>
+                        <option value="Otros">Otros</option>
+                    </select>
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button type="button" id="cancel-btn" class="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg font-semibold">Cancelar</button>
+                    <button type="submit" class="bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold">Agregar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Pantalla de Carga/Login -->
+    <div id="loading-screen" class="fixed inset-0 bg-gray-50 flex flex-col items-center justify-center text-center p-4">
+        <svg class="animate-spin h-12 w-12 text-purple-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        <h2 class="text-2xl font-bold text-gray-800">Conectando a tu Asistente Financiero...</h2>
+        <p class="text-gray-600 mt-2">Sincronizando tus datos de forma segura.</p>
+    </div>
+
+    <!-- Módulo de Firebase -->
+    <script type="module">
+        // Importar funciones de Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, setDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // --- CONFIGURACIÓN DE FIREBASE ---
+        // Se utiliza la configuración proporcionada por el entorno de Canvas
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config) 
+            : {
+                // Configuración de respaldo para desarrollo local si __firebase_config no está disponible
+                apiKey: "MOCK_API_KEY",
+                authDomain: "MOCK_PROJECT_ID.firebaseapp.com",
+                projectId: "MOCK_PROJECT_ID",
+                storageBucket: "MOCK_PROJECT_ID.appspot.com",
+                messagingSenderId: "MOCK_SENDER_ID",
+                appId: "MOCK_APP_ID"
+            };
+
+        // --- INICIALIZACIÓN DE FIREBASE ---
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
 
         // --- ELEMENTOS DEL DOM ---
         const balanceEl = document.getElementById('balance');
-        const transactionForm = document.getElementById('transaction-form');
         const transactionListEl = document.getElementById('transaction-list');
-        const goalForm = document.getElementById('goal-form');
         const goalSection = document.getElementById('goal-section');
-        const goalDisplay = document.getElementById('goal-display');
-        const setupGoal = document.getElementById('setup-goal');
-        const goalNameDisplay = document.getElementById('goal-name-display');
-        const goalProgressAmount = document.getElementById('goal-progress-amount');
-        const goalTargetAmount = document.getElementById('goal-target-amount');
-        const goalProgressBar = document.getElementById('goal-progress-bar');
-        const goalPercentage = document.getElementById('goal-percentage');
-        const addSavingsForm = document.getElementById('add-savings-form');
-        const deleteGoalBtn = document.getElementById('delete-goal-btn');
+        const insightsEl = document.getElementById('insights');
+        const categoryChartCanvas = document.getElementById('category-chart');
+        const modal = document.getElementById('transaction-modal');
+        const addTransactionBtn = document.getElementById('add-transaction-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+        const transactionForm = document.getElementById('transaction-form');
+        const typeSelect = document.getElementById('type');
+        const categorySelect = document.getElementById('category');
+        
+        let categoryChart;
+        let transactions = [];
+        let savingsGoal = null;
+        let userId = null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
-        // --- ESTADO DE LA APLICACIÓN ---
-        let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
-        let savingsGoal = JSON.parse(localStorage.getItem('savingsGoal')) || null;
+        // --- LÓGICA DE LA APP ---
 
-        // --- FUNCIONES ---
-
-        /**
-         * Formatea un número a un string de moneda (ej. $1,234.56)
-         * @param {number} number - El número a formatear
-         * @returns {string} - El número formateado como moneda
-         */
         function formatCurrency(number) {
             return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(number);
         }
 
-        /**
-         * Guarda el estado actual en localStorage
-         */
-        function saveState() {
-            localStorage.setItem('transactions', JSON.stringify(transactions));
-            localStorage.setItem('savingsGoal', JSON.stringify(savingsGoal));
+        function showModal() {
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modal.querySelector('.modal-content').classList.remove('scale-95');
+            }, 10);
         }
 
-        /**
-         * Actualiza toda la interfaz de usuario con los datos actuales
-         */
-        function updateUI() {
-            updateBalance();
-            updateTransactionList();
-            updateSavingsGoal();
-            saveState();
-        }
-
-        /**
-         * Calcula y actualiza el saldo total
-         */
-        function updateBalance() {
-            const total = transactions.reduce((acc, transaction) => {
-                return transaction.type === 'income' ? acc + transaction.amount : acc - transaction.amount;
-            }, 0);
-            balanceEl.textContent = formatCurrency(total);
-        }
-
-        /**
-         * Renderiza la lista de transacciones en el DOM
-         */
-        function updateTransactionList() {
-            transactionListEl.innerHTML = '';
-            if (transactions.length === 0) {
-                transactionListEl.innerHTML = '<p class="text-center text-gray-500">No hay transacciones todavía.</p>';
-                return;
-            }
-            transactions.slice().reverse().forEach(transaction => {
-                const isIncome = transaction.type === 'income';
-                const sign = isIncome ? '+' : '-';
-                const transactionEl = document.createElement('div');
-                transactionEl.className = `flex justify-between items-center p-3 rounded-lg ${isIncome ? 'bg-green-100' : 'bg-red-100'}`;
-                transactionEl.innerHTML = `
-                    <div>
-                        <p class="font-semibold">${transaction.description}</p>
-                        <p class="text-xs text-gray-600">${new Date(transaction.id).toLocaleDateString('es-MX')}</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="font-bold ${isIncome ? 'text-green-700' : 'text-red-700'}">${sign}${formatCurrency(transaction.amount)}</p>
-                        <button onclick="removeTransaction(${transaction.id})" class="text-xs text-gray-500 hover:text-red-600 font-semibold">Eliminar</button>
-                    </div>
-                `;
-                transactionListEl.appendChild(transactionEl);
-            });
-        }
-
-        /**
-         * Actualiza la sección de la meta de ahorro
-         */
-        function updateSavingsGoal() {
-            if (savingsGoal) {
-                goalDisplay.classList.remove('hidden');
-                setupGoal.classList.add('hidden');
-
-                const { name, total, saved } = savingsGoal;
-                const percentage = total > 0 ? (saved / total) * 100 : 0;
-
-                goalNameDisplay.textContent = name;
-                goalProgressAmount.textContent = formatCurrency(saved);
-                goalTargetAmount.textContent = `de ${formatCurrency(total)}`;
-                goalProgressBar.style.width = `${Math.min(percentage, 100)}%`;
-                goalPercentage.textContent = `${percentage.toFixed(1)}% completado`;
-            } else {
-                goalDisplay.classList.add('hidden');
-                setupGoal.classList.remove('hidden');
-            }
-        }
-
-        /**
-         * Agrega una nueva transacción
-         * @param {Event} e - El evento del formulario
-         */
-        function addTransaction(e) {
-            e.preventDefault();
-            const description = document.getElementById('description').value;
-            const amount = +document.getElementById('amount').value;
-            const type = document.getElementById('type').value;
-
-            if (description.trim() === '' || amount <= 0) {
-                alert('Por favor, ingresa una descripción y un monto válidos.');
-                return;
-            }
-
-            const transaction = {
-                id: new Date().getTime(),
-                description,
-                amount,
-                type
-            };
-
-            transactions.push(transaction);
-            updateUI();
+        function hideModal() {
+            modal.classList.add('opacity-0');
+            modal.querySelector('.modal-content').classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
             transactionForm.reset();
         }
 
-        /**
-         * Elimina una transacción por su ID
-         * @param {number} id - El ID de la transacción a eliminar
-         */
-        function removeTransaction(id) {
-            transactions = transactions.filter(transaction => transaction.id !== id);
-            updateUI();
+        function updateUI() {
+            updateBalance();
+            updateTransactionList();
+            updateSavingsGoalUI();
+            updateCategoryChart();
+            generateInsights();
         }
 
-        /**
-         * Establece una nueva meta de ahorro
-         * @param {Event} e - El evento del formulario
-         */
-        function setGoal(e) {
-            e.preventDefault();
-            const name = document.getElementById('goal-name').value;
-            const total = +document.getElementById('goal-total').value;
-
-            if (name.trim() === '' || total <= 0) {
-                alert('Por favor, ingresa un nombre y un monto válidos para la meta.');
-                return;
-            }
-
-            savingsGoal = {
-                name,
-                total,
-                saved: 0
-            };
-
-            updateUI();
-            goalForm.reset();
+        function updateBalance() {
+            const total = transactions.reduce((acc, t) => t.type === 'income' ? acc + t.amount : acc - t.amount, 0);
+            balanceEl.textContent = formatCurrency(total);
         }
 
-        /**
-         * Agrega fondos a la meta de ahorro actual
-         * @param {Event} e - El evento del formulario
-         */
-        function addSavings(e) {
-            e.preventDefault();
-            const amount = +document.getElementById('savings-amount').value;
-
-            if (amount <= 0 || !savingsGoal) {
-                alert('Por favor, ingresa un monto válido.');
+        function updateTransactionList() {
+            transactionListEl.innerHTML = '';
+            if (transactions.length === 0) {
+                transactionListEl.innerHTML = '<p class="text-center text-gray-500 py-8">Añade tu primera transacción.</p>';
                 return;
             }
-            
-            const currentBalance = transactions.reduce((acc, t) => t.type === 'income' ? acc + t.amount : acc - t.amount, 0);
-            if (amount > currentBalance) {
-                if (!confirm('Tu saldo es insuficiente. ¿Deseas registrar esta aportación de todas formas? Esto resultará en un saldo negativo.')) {
-                    return;
-                }
-            }
-
-            const savingsTransaction = {
-                id: new Date().getTime(),
-                description: `Aportación a meta: ${savingsGoal.name}`,
-                amount,
-                type: 'expense'
-            };
-            transactions.push(savingsTransaction);
-
-            savingsGoal.saved += amount;
-
-            updateUI();
-            addSavingsForm.reset();
+            transactions.forEach(t => {
+                const isIncome = t.type === 'income';
+                const sign = isIncome ? '+' : '-';
+                const el = document.createElement('div');
+                el.className = `flex justify-between items-center p-3 rounded-lg border-l-4 ${isIncome ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'}`;
+                el.innerHTML = `
+                    <div>
+                        <p class="font-semibold">${t.description}</p>
+                        <p class="text-xs text-gray-500">${t.category} &bull; ${new Date(t.id).toLocaleDateString('es-MX')}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-bold ${isIncome ? 'text-green-700' : 'text-red-700'}">${sign}${formatCurrency(t.amount)}</p>
+                        <button data-id="${t.id}" class="delete-btn text-xs text-gray-500 hover:text-red-600 font-semibold">Eliminar</button>
+                    </div>
+                `;
+                transactionListEl.appendChild(el);
+            });
         }
         
-        /**
-         * Elimina la meta de ahorro actual
-         */
-        function deleteGoal() {
-            if (confirm('¿Estás seguro de que quieres eliminar esta meta? Las transacciones de aportación no se eliminarán.')) {
-                savingsGoal = null;
-                updateUI();
+        function updateSavingsGoalUI() {
+            goalSection.innerHTML = '';
+            if (savingsGoal) {
+                const { name, total, saved } = savingsGoal;
+                const percentage = total > 0 ? (saved / total) * 100 : 0;
+                goalSection.innerHTML = `
+                    <h2 class="text-xl font-bold mb-4">Meta de Ahorro</h2>
+                    <div class="goal-card text-white p-6 rounded-xl mb-4">
+                        <p class="font-semibold text-lg">${name}</p>
+                        <p class="text-3xl font-bold">${formatCurrency(saved)}</p>
+                        <p class="text-sm opacity-80">de ${formatCurrency(total)}</p>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-4 mb-2"><div class="bg-green-500 h-4 rounded-full" style="width: ${Math.min(percentage, 100)}%;"></div></div>
+                    <p class="text-sm text-center text-gray-600 mb-4">${percentage.toFixed(1)}% completado</p>
+                    <form id="add-savings-form" class="flex gap-2">
+                        <input type="number" id="savings-amount" placeholder="Aportar" class="w-full p-2 border border-gray-300 rounded-lg" required step="0.01">
+                        <button type="submit" class="bg-blue-600 text-white px-4 rounded-lg font-semibold hover:bg-blue-700 transition">OK</button>
+                    </form>
+                    <button id="delete-goal-btn" class="w-full text-center text-red-500 text-xs mt-3 font-semibold hover:text-red-700">Eliminar Meta</button>
+                `;
+            } else {
+                goalSection.innerHTML = `
+                    <h2 class="text-xl font-bold mb-4">Crea una Meta de Ahorro</h2>
+                    <p class="text-gray-600 mb-4 text-sm">Define un objetivo para empezar a ahorrar.</p>
+                    <form id="goal-form">
+                        <input type="text" id="goal-name" placeholder="Nombre (ej. Viaje)" class="w-full p-3 border border-gray-300 rounded-lg mb-2" required>
+                        <input type="number" id="goal-total" placeholder="Monto total" class="w-full p-3 border border-gray-300 rounded-lg mb-2" required step="0.01">
+                        <button type="submit" class="w-full bg-purple-600 text-white p-3 rounded-lg font-semibold hover:bg-purple-700 transition">Establecer Meta</button>
+                    </form>
+                `;
             }
         }
 
+        function updateCategoryChart() {
+            const expenseData = transactions
+                .filter(t => t.type === 'expense')
+                .reduce((acc, t) => {
+                    acc[t.category] = (acc[t.category] || 0) + t.amount;
+                    return acc;
+                }, {});
+
+            const labels = Object.keys(expenseData);
+            const data = Object.values(expenseData);
+
+            if (categoryChart) {
+                categoryChart.data.labels = labels;
+                categoryChart.data.datasets[0].data = data;
+                categoryChart.update();
+            } else {
+                categoryChart = new Chart(categoryChartCanvas, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Gastos',
+                            data: data,
+                            backgroundColor: ['#EF4444', '#F97316', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 20 } } }
+                    }
+                });
+            }
+        }
+        
+        function generateInsights() {
+            insightsEl.innerHTML = '';
+            if (transactions.length < 3) {
+                insightsEl.innerHTML = '<p>Sigue añadiendo transacciones para recibir consejos.</p>';
+                return;
+            }
+
+            const expenses = transactions.filter(t => t.type === 'expense');
+            if (expenses.length > 0) {
+                const topCategory = Object.entries(expenses.reduce((acc, t) => {
+                    acc[t.category] = (acc[t.category] || 0) + t.amount;
+                    return acc;
+                }, {})).sort((a, b) => b[1] - a[1])[0];
+                insightsEl.innerHTML += `<p>💡 Tu mayor categoría de gasto es <strong>${topCategory[0]}</strong>, con un total de <strong>${formatCurrency(topCategory[1])}</strong>.</p>`;
+            }
+
+            const totalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+            const totalExpense = expenses.reduce((sum, t) => sum + t.amount, 0);
+            if (totalIncome > totalExpense) {
+                insightsEl.innerHTML += `<p>✅ ¡Excelente! Has ganado <strong>${formatCurrency(totalIncome - totalExpense)}</strong> más de lo que gastaste.</p>`;
+            } else {
+                 insightsEl.innerHTML += `<p>⚠️ Cuidado, has gastado <strong>${formatCurrency(totalExpense - totalIncome)}</strong> más de lo que ganaste.</p>`;
+            }
+        }
+
+        // --- MANEJO DE DATOS CON FIRESTORE ---
+
+        async function setupListeners() {
+            const transCol = collection(db, 'artifacts', appId, 'users', userId, 'transactions');
+            const goalDoc = doc(db, 'artifacts', appId, 'users', userId, 'goal', 'currentGoal');
+
+            onSnapshot(query(transCol), (snapshot) => {
+                transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                transactions.sort((a, b) => b.id - a.id); // Ordenar por fecha (ID)
+                updateUI();
+            });
+
+            onSnapshot(goalDoc, (doc) => {
+                savingsGoal = doc.exists() ? doc.data() : null;
+                updateUI();
+            });
+        }
+
+        async function addTransactionToDB(transactionData) {
+            const transCol = collection(db, 'artifacts', appId, 'users', userId, 'transactions');
+            await addDoc(transCol, transactionData);
+        }
+
+        async function deleteTransactionFromDB(id) {
+            await deleteDoc(doc(db, 'artifacts', appId, 'users', userId, 'transactions', id));
+        }
+
+        async function setGoalInDB(goalData) {
+            await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'goal', 'currentGoal'), goalData);
+        }
+        
+        async function deleteGoalFromDB() {
+            await deleteDoc(doc(db, 'artifacts', appId, 'users', userId, 'goal', 'currentGoal'));
+        }
 
         // --- EVENT LISTENERS ---
-        transactionForm.addEventListener('submit', addTransaction);
-        goalForm.addEventListener('submit', setGoal);
-        addSavingsForm.addEventListener('submit', addSavings);
-        deleteGoalBtn.addEventListener('click', deleteGoal);
+        addTransactionBtn.addEventListener('click', showModal);
+        cancelBtn.addEventListener('click', hideModal);
 
-        // --- INICIALIZACIÓN ---
-        document.addEventListener('DOMContentLoaded', updateUI);
+        transactionForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newTransaction = {
+                id: new Date().getTime(),
+                description: document.getElementById('description').value,
+                amount: +document.getElementById('amount').value,
+                type: typeSelect.value,
+                category: categorySelect.value
+            };
+            await addTransactionToDB(newTransaction);
+            hideModal();
+        });
+        
+        typeSelect.addEventListener('change', () => {
+            categorySelect.value = typeSelect.value === 'income' ? 'Sueldo' : 'Comida';
+        });
+
+        transactionListEl.addEventListener('click', (e) => {
+            if (e.target.classList.contains('delete-btn')) {
+                const id = e.target.dataset.id;
+                if (confirm('¿Seguro que quieres eliminar esta transacción?')) {
+                    deleteTransactionFromDB(id);
+                }
+            }
+        });
+
+        goalSection.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (e.target.id === 'goal-form') {
+                const newGoal = {
+                    name: document.getElementById('goal-name').value,
+                    total: +document.getElementById('goal-total').value,
+                    saved: 0
+                };
+                await setGoalInDB(newGoal);
+            } else if (e.target.id === 'add-savings-form') {
+                const amount = +document.getElementById('savings-amount').value;
+                if(amount <= 0) return;
+                
+                const savingsTransaction = {
+                    id: new Date().getTime(),
+                    description: `Aportación a meta: ${savingsGoal.name}`,
+                    amount,
+                    type: 'expense',
+                    category: 'Ahorro'
+                };
+                await addTransactionToDB(savingsTransaction);
+                
+                const updatedGoal = { ...savingsGoal, saved: savingsGoal.saved + amount };
+                await setGoalInDB(updatedGoal);
+            }
+        });
+        
+        goalSection.addEventListener('click', (e) => {
+            if (e.target.id === 'delete-goal-btn') {
+                if (confirm('¿Estás seguro de que quieres eliminar esta meta?')) {
+                    deleteGoalFromDB();
+                }
+            }
+        });
+
+        // --- INICIALIZACIÓN DE LA APP ---
+        const startApp = (userCredential) => {
+            userId = userCredential.user.uid;
+            document.getElementById('user-id').textContent = userId.substring(0, 8) + '...';
+            document.getElementById('loading-screen').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('hidden');
+            document.getElementById('add-transaction-btn').classList.remove('hidden');
+            setupListeners();
+        };
+
+        const handleAuthError = (error) => {
+            console.error("Error de autenticación:", error);
+            const loadingScreen = document.getElementById('loading-screen');
+            loadingScreen.innerHTML = `
+                <h2 class="text-2xl font-bold text-red-600">Error de Conexión</h2>
+                <p class="text-gray-600 mt-2">No se pudo autenticar con el servidor. Por favor, verifica tu configuración de Firebase o recarga la página.</p>
+                <p class="text-xs text-gray-400 mt-4 font-mono">${error.message}</p>
+            `;
+        };
+        
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            signInWithCustomToken(auth, __initial_auth_token)
+                .then(startApp)
+                .catch(handleAuthError);
+        } else {
+            signInAnonymously(auth)
+                .then(startApp)
+                .catch(handleAuthError);
+        }
 
     </script>
 </body>

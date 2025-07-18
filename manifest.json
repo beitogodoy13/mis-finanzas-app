@@ -1,19 +1,20 @@
 {
-  "name": "Control Financiero",
+  "name": "Asistente Financiero Personal",
   "short_name": "Finanzas",
-  "description": "Una app para controlar gastos y ahorros personales.",
+  "description": "Tu asistente inteligente para controlar gastos, visualizar tus finanzas y alcanzar metas de ahorro.",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#f3f4f6",
-  "theme_color": "#667eea",
+  "background_color": "#f9fafb",
+  "theme_color": "#8B5CF6",
   "icons": [
     {
-      "src": "https://placehold.co/192x192/764ba2/ffffff?text=Finanzas",
+      "src": "https://placehold.co/192x192/7C3AED/ffffff?text=Finanzas",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any maskable"
     },
     {
-      "src": "https://placehold.co/512x512/764ba2/ffffff?text=Finanzas",
+      "src": "https://placehold.co/512x512/7C3AED/ffffff?text=Finanzas",
       "sizes": "512x512",
       "type": "image/png"
     }
