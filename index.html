@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Control de Finanzas</title>
+    
+    <!-- Meta tags para PWA en iOS -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Finanzas">
+    
+    <!-- Link al Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Icono para iOS -->
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/764ba2/ffffff?text=Finanzas">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Estilo para un scrollbar más sutil */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        .goal-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-4xl">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900">Control Financiero Personal</h1>
+            <p class="text-gray-600 mt-2">Registra tus movimientos y alcanza tus metas de ahorro.</p>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Columna Izquierda: Resumen y Metas -->
+            <div class="lg:col-span-1 space-y-8">
+                
+                <!-- Card de Saldo Actual -->
+                <div class="bg-white p-6 rounded-2xl shadow-lg">
+                    <h2 class="text-xl font-bold mb-4">Resumen</h2>
+                    <p class="text-gray-600">Saldo Actual</p>
+                    <p id="balance" class="text-4xl font-extrabold text-gray-900 mt-2">$0.00</p>
+                </div>
+
+                <!-- Card de Meta de Ahorro -->
+                <div id="goal-section" class="bg-white p-6 rounded-2xl shadow-lg">
+                    <h2 class="text-xl font-bold mb-4">Meta de Ahorro</h2>
+                    <div id="goal-display" class="hidden">
+                        <div class="goal-card text-white p-6 rounded-xl mb-4">
+                            <p class="font-semibold text-lg" id="goal-name-display"></p>
+                            <p class="text-3xl font-bold" id="goal-progress-amount"></p>
+                            <p class="text-sm opacity-80" id="goal-target-amount"></p>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-4 mb-2">
+                            <div id="goal-progress-bar" class="bg-green-500 h-4 rounded-full" style="width: 0%;"></div>
+                        </div>
+                        <p class="text-sm text-center text-gray-600 mb-4" id="goal-percentage">0%</p>
+                        
+                        <form id="add-savings-form">
+                            <input type="number" id="savings-amount" placeholder="Aportar a la meta" class="w-full p-3 border border-gray-300 rounded-lg mb-2" required step="0.01">
+                            <button type="submit" class="w-full bg-blue-600 text-white p-3 rounded-lg font-semibold hover:bg-blue-700 transition">Aportar</button>
+                        </form>
+                         <button id="delete-goal-btn" class="w-full bg-red-500 text-white p-2 rounded-lg font-semibold hover:bg-red-600 transition mt-2 text-sm">Eliminar Meta</button>
+                    </div>
+                    <div id="setup-goal">
+                        <p class="text-gray-600 mb-4">Aún no has definido una meta.</p>
+                        <form id="goal-form">
+                            <input type="text" id="goal-name" placeholder="Nombre de la meta (ej. Viaje)" class="w-full p-3 border border-gray-300 rounded-lg mb-2" required>
+                            <input type="number" id="goal-total" placeholder="Monto total a ahorrar" class="w-full p-3 border border-gray-300 rounded-lg mb-2" required step="0.01">
+                            <button type="submit" class="w-full bg-indigo-600 text-white p-3 rounded-lg font-semibold hover:bg-indigo-700 transition">Establecer Meta</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Columna Derecha: Transacciones -->
+            <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-lg">
+                <h2 class="text-xl font-bold mb-4">Nueva Transacción</h2>
+                <form id="transaction-form" class="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+                    <div class="md:col-span-2">
+                        <label for="description" class="block text-sm font-medium text-gray-700">Descripción</label>
+                        <input type="text" id="description" class="mt-1 w-full p-3 border border-gray-300 rounded-lg" required>
+                    </div>
+                    <div>
+                        <label for="amount" class="block text-sm font-medium text-gray-700">Monto</label>
+                        <input type="number" id="amount" class="mt-1 w-full p-3 border border-gray-300 rounded-lg" required step="0.01">
+                    </div>
+                    <div>
+                        <label for="type" class="block text-sm font-medium text-gray-700">Tipo</label>
+                        <select id="type" class="mt-1 w-full p-3 border border-gray-300 rounded-lg bg-white">
+                            <option value="income">Ingreso</option>
+                            <option value="expense">Gasto</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-2">
+                         <button type="submit" class="w-full bg-green-600 text-white p-3 rounded-lg font-semibold hover:bg-green-700 transition">Agregar Transacción</button>
+                    </div>
+                </form>
+
+                <hr class="my-8">
+
+                <h2 class="text-xl font-bold mb-4">Historial de Transacciones</h2>
+                <div id="transaction-list" class="space-y-3 max-h-96 overflow-y-auto pr-2">
+                    <!-- Las transacciones se insertarán aquí -->
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // --- REGISTRO DEL SERVICE WORKER PARA PWA ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => console.log('Service Worker registrado con éxito:', registration))
+                    .catch(error => console.log('Error al registrar Service Worker:', error));
+            });
+        }
+
+        // --- ELEMENTOS DEL DOM ---
+        const balanceEl = document.getElementById('balance');
+        const transactionForm = document.getElementById('transaction-form');
+        const transactionListEl = document.getElementById('transaction-list');
+        const goalForm = document.getElementById('goal-form');
+        const goalSection = document.getElementById('goal-section');
+        const goalDisplay = document.getElementById('goal-display');
+        const setupGoal = document.getElementById('setup-goal');
+        const goalNameDisplay = document.getElementById('goal-name-display');
+        const goalProgressAmount = document.getElementById('goal-progress-amount');
+        const goalTargetAmount = document.getElementById('goal-target-amount');
+        const goalProgressBar = document.getElementById('goal-progress-bar');
+        const goalPercentage = document.getElementById('goal-percentage');
+        const addSavingsForm = document.getElementById('add-savings-form');
+        const deleteGoalBtn = document.getElementById('delete-goal-btn');
+
+        // --- ESTADO DE LA APLICACIÓN ---
+        let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+        let savingsGoal = JSON.parse(localStorage.getItem('savingsGoal')) || null;
+
+        // --- FUNCIONES ---
+
+        /**
+         * Formatea un número a un string de moneda (ej. $1,234.56)
+         * @param {number} number - El número a formatear
+         * @returns {string} - El número formateado como moneda
+         */
+        function formatCurrency(number) {
+            return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(number);
+        }
+
+        /**
+         * Guarda el estado actual en localStorage
+         */
+        function saveState() {
+            localStorage.setItem('transactions', JSON.stringify(transactions));
+            localStorage.setItem('savingsGoal', JSON.stringify(savingsGoal));
+        }
+
+        /**
+         * Actualiza toda la interfaz de usuario con los datos actuales
+         */
+        function updateUI() {
+            updateBalance();
+            updateTransactionList();
+            updateSavingsGoal();
+            saveState();
+        }
+
+        /**
+         * Calcula y actualiza el saldo total
+         */
+        function updateBalance() {
+            const total = transactions.reduce((acc, transaction) => {
+                return transaction.type === 'income' ? acc + transaction.amount : acc - transaction.amount;
+            }, 0);
+            balanceEl.textContent = formatCurrency(total);
+        }
+
+        /**
+         * Renderiza la lista de transacciones en el DOM
+         */
+        function updateTransactionList() {
+            transactionListEl.innerHTML = '';
+            if (transactions.length === 0) {
+                transactionListEl.innerHTML = '<p class="text-center text-gray-500">No hay transacciones todavía.</p>';
+                return;
+            }
+            transactions.slice().reverse().forEach(transaction => {
+                const isIncome = transaction.type === 'income';
+                const sign = isIncome ? '+' : '-';
+                const transactionEl = document.createElement('div');
+                transactionEl.className = `flex justify-between items-center p-3 rounded-lg ${isIncome ? 'bg-green-100' : 'bg-red-100'}`;
+                transactionEl.innerHTML = `
+                    <div>
+                        <p class="font-semibold">${transaction.description}</p>
+                        <p class="text-xs text-gray-600">${new Date(transaction.id).toLocaleDateString('es-MX')}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-bold ${isIncome ? 'text-green-700' : 'text-red-700'}">${sign}${formatCurrency(transaction.amount)}</p>
+                        <button onclick="removeTransaction(${transaction.id})" class="text-xs text-gray-500 hover:text-red-600 font-semibold">Eliminar</button>
+                    </div>
+                `;
+                transactionListEl.appendChild(transactionEl);
+            });
+        }
+
+        /**
+         * Actualiza la sección de la meta de ahorro
+         */
+        function updateSavingsGoal() {
+            if (savingsGoal) {
+                goalDisplay.classList.remove('hidden');
+                setupGoal.classList.add('hidden');
+
+                const { name, total, saved } = savingsGoal;
+                const percentage = total > 0 ? (saved / total) * 100 : 0;
+
+                goalNameDisplay.textContent = name;
+                goalProgressAmount.textContent = formatCurrency(saved);
+                goalTargetAmount.textContent = `de ${formatCurrency(total)}`;
+                goalProgressBar.style.width = `${Math.min(percentage, 100)}%`;
+                goalPercentage.textContent = `${percentage.toFixed(1)}% completado`;
+            } else {
+                goalDisplay.classList.add('hidden');
+                setupGoal.classList.remove('hidden');
+            }
+        }
+
+        /**
+         * Agrega una nueva transacción
+         * @param {Event} e - El evento del formulario
+         */
+        function addTransaction(e) {
+            e.preventDefault();
+            const description = document.getElementById('description').value;
+            const amount = +document.getElementById('amount').value;
+            const type = document.getElementById('type').value;
+
+            if (description.trim() === '' || amount <= 0) {
+                alert('Por favor, ingresa una descripción y un monto válidos.');
+                return;
+            }
+
+            const transaction = {
+                id: new Date().getTime(),
+                description,
+                amount,
+                type
+            };
+
+            transactions.push(transaction);
+            updateUI();
+            transactionForm.reset();
+        }
+
+        /**
+         * Elimina una transacción por su ID
+         * @param {number} id - El ID de la transacción a eliminar
+         */
+        function removeTransaction(id) {
+            transactions = transactions.filter(transaction => transaction.id !== id);
+            updateUI();
+        }
+
+        /**
+         * Establece una nueva meta de ahorro
+         * @param {Event} e - El evento del formulario
+         */
+        function setGoal(e) {
+            e.preventDefault();
+            const name = document.getElementById('goal-name').value;
+            const total = +document.getElementById('goal-total').value;
+
+            if (name.trim() === '' || total <= 0) {
+                alert('Por favor, ingresa un nombre y un monto válidos para la meta.');
+                return;
+            }
+
+            savingsGoal = {
+                name,
+                total,
+                saved: 0
+            };
+
+            updateUI();
+            goalForm.reset();
+        }
+
+        /**
+         * Agrega fondos a la meta de ahorro actual
+         * @param {Event} e - El evento del formulario
+         */
+        function addSavings(e) {
+            e.preventDefault();
+            const amount = +document.getElementById('savings-amount').value;
+
+            if (amount <= 0 || !savingsGoal) {
+                alert('Por favor, ingresa un monto válido.');
+                return;
+            }
+            
+            const currentBalance = transactions.reduce((acc, t) => t.type === 'income' ? acc + t.amount : acc - t.amount, 0);
+            if (amount > currentBalance) {
+                if (!confirm('Tu saldo es insuficiente. ¿Deseas registrar esta aportación de todas formas? Esto resultará en un saldo negativo.')) {
+                    return;
+                }
+            }
+
+            const savingsTransaction = {
+                id: new Date().getTime(),
+                description: `Aportación a meta: ${savingsGoal.name}`,
+                amount,
+                type: 'expense'
+            };
+            transactions.push(savingsTransaction);
+
+            savingsGoal.saved += amount;
+
+            updateUI();
+            addSavingsForm.reset();
+        }
+        
+        /**
+         * Elimina la meta de ahorro actual
+         */
+        function deleteGoal() {
+            if (confirm('¿Estás seguro de que quieres eliminar esta meta? Las transacciones de aportación no se eliminarán.')) {
+                savingsGoal = null;
+                updateUI();
+            }
+        }
+
+
+        // --- EVENT LISTENERS ---
+        transactionForm.addEventListener('submit', addTransaction);
+        goalForm.addEventListener('submit', setGoal);
+        addSavingsForm.addEventListener('submit', addSavings);
+        deleteGoalBtn.addEventListener('click', deleteGoal);
+
+        // --- INICIALIZACIÓN ---
+        document.addEventListener('DOMContentLoaded', updateUI);
+
+    </script>
+</body>
+</html>
