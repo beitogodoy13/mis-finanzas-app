@@ -32,6 +32,18 @@
         .modal-content {
             transition: transform 0.3s ease;
         }
+        .spinner {
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #8B5CF6;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -113,17 +125,29 @@
                 </div>
                 <div class="flex justify-end gap-3">
                     <button type="button" id="cancel-btn" class="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg font-semibold">Cancelar</button>
-                    <button type="submit" class="bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold">Agregar</button>
+                    <button type="submit" class="bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold flex items-center justify-center gap-2">Agregar</button>
                 </div>
             </form>
         </div>
     </div>
     
+    <!-- Modal para Errores -->
+    <div id="error-modal" class="modal-backdrop fixed inset-0 flex items-center justify-center p-4 hidden">
+        <div class="modal-content bg-white w-full max-w-md p-6 rounded-2xl shadow-xl">
+            <h2 class="text-xl font-bold mb-4 text-red-600">Ocurrió un Error</h2>
+            <p id="error-message" class="text-gray-700 mb-6">No se pudo completar la operación.</p>
+            <div class="flex justify-end">
+                <button id="close-error-modal-btn" class="bg-red-600 text-white px-6 py-3 rounded-lg font-semibold">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Pantalla de Carga/Login -->
     <div id="loading-screen" class="fixed inset-0 bg-gray-50 flex flex-col items-center justify-center text-center p-4">
         <svg class="animate-spin h-12 w-12 text-purple-600 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-        <h2 class="text-2xl font-bold text-gray-800">Conectando a tu Asistente Financiero...</h2>
-        <p class="text-gray-600 mt-2">Sincronizando tus datos de forma segura.</p>
+        <h2 id="loading-title" class="text-2xl font-bold text-gray-800">Conectando...</h2>
+        <p id="loading-message" class="text-gray-600 mt-2">Sincronizando tus datos de forma segura.</p>
+        <p id="loading-error-code" class="text-xs text-gray-400 mt-4 font-mono"></p>
     </div>
 
     <!-- Módulo de Firebase -->
@@ -134,15 +158,17 @@
         import { getFirestore, collection, doc, onSnapshot, addDoc, deleteDoc, setDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         // --- CONFIGURACIÓN DE FIREBASE ---
-        const firebaseConfig = {
-  apiKey: "AIzaSyBP0KXKYCoZbYt5zc48ypyvorjgZHLWhqo",
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config) 
+            : {
+                apiKey: "AIzaSyBP0KXKYCoZbYt5zc48ypyvorjgZHLWhqo",
   authDomain: "personalesahorros-3227f.firebaseapp.com",
   projectId: "personalesahorros-3227f",
   storageBucket: "personalesahorros-3227f.firebasestorage.app",
   messagingSenderId: "994651837502",
   appId: "1:994651837502:web:bbd31b007b8ba9c1996d6f",
   measurementId: "G-SXLN9WBPZD"
-};
+            };
 
         // --- INICIALIZACIÓN DE FIREBASE ---
         const app = initializeApp(firebaseConfig);
@@ -161,6 +187,9 @@
         const transactionForm = document.getElementById('transaction-form');
         const typeSelect = document.getElementById('type');
         const categorySelect = document.getElementById('category');
+        const errorModal = document.getElementById('error-modal');
+        const errorMessageEl = document.getElementById('error-message');
+        const closeErrorModalBtn = document.getElementById('close-error-modal-btn');
         
         let categoryChart;
         let transactions = [];
@@ -187,6 +216,15 @@
             modal.querySelector('.modal-content').classList.add('scale-95');
             setTimeout(() => modal.classList.add('hidden'), 300);
             transactionForm.reset();
+        }
+        
+        function showErrorModal(message) {
+            errorMessageEl.textContent = message;
+            errorModal.classList.remove('hidden');
+        }
+
+        function hideErrorModal() {
+            errorModal.classList.add('hidden');
         }
 
         function updateUI() {
@@ -323,44 +361,81 @@
         // --- MANEJO DE DATOS CON FIRESTORE ---
 
         async function setupListeners() {
-            const transCol = collection(db, 'artifacts', appId, 'users', userId, 'transactions');
-            const goalDoc = doc(db, 'artifacts', appId, 'users', userId, 'goal', 'currentGoal');
+            try {
+                const transCol = collection(db, 'artifacts', appId, 'users', userId, 'transactions');
+                const goalDoc = doc(db, 'artifacts', appId, 'users', userId, 'goal', 'currentGoal');
 
-            onSnapshot(query(transCol), (snapshot) => {
-                transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                transactions.sort((a, b) => b.id - a.id); // Ordenar por fecha (ID)
-                updateUI();
-            });
+                onSnapshot(query(transCol), (snapshot) => {
+                    transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    transactions.sort((a, b) => b.id - a.id);
+                    updateUI();
+                }, (error) => {
+                    console.error("Error en listener de transacciones:", error);
+                    showErrorModal("Error al cargar las transacciones. Es posible que los permisos de la base de datos no sean correctos.");
+                });
 
-            onSnapshot(goalDoc, (doc) => {
-                savingsGoal = doc.exists() ? doc.data() : null;
-                updateUI();
-            });
+                onSnapshot(goalDoc, (doc) => {
+                    savingsGoal = doc.exists() ? doc.data() : null;
+                    updateUI();
+                }, (error) => {
+                    console.error("Error en listener de meta:", error);
+                    showErrorModal("Error al cargar la meta de ahorro.");
+                });
+            } catch (error) {
+                 console.error("Error al configurar listeners:", error);
+                 showErrorModal("No se pudo iniciar la sincronización con la base de datos.");
+            }
         }
 
         async function addTransactionToDB(transactionData) {
-            const transCol = collection(db, 'artifacts', appId, 'users', userId, 'transactions');
-            await addDoc(transCol, transactionData);
+            try {
+                const transCol = collection(db, 'artifacts', appId, 'users', userId, 'transactions');
+                await addDoc(transCol, transactionData);
+                hideModal();
+            } catch (error) {
+                console.error("Error al añadir transacción:", error);
+                showErrorModal(`No se pudo guardar la transacción: ${error.message}`);
+            }
         }
 
         async function deleteTransactionFromDB(id) {
-            await deleteDoc(doc(db, 'artifacts', appId, 'users', userId, 'transactions', id));
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'users', userId, 'transactions', id));
+            } catch (error) {
+                console.error("Error al eliminar transacción:", error);
+                showErrorModal(`No se pudo eliminar la transacción: ${error.message}`);
+            }
         }
 
         async function setGoalInDB(goalData) {
-            await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'goal', 'currentGoal'), goalData);
+            try {
+                await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'goal', 'currentGoal'), goalData);
+            } catch (error) {
+                console.error("Error al establecer la meta:", error);
+                showErrorModal(`No se pudo guardar la meta: ${error.message}`);
+            }
         }
         
         async function deleteGoalFromDB() {
-            await deleteDoc(doc(db, 'artifacts', appId, 'users', userId, 'goal', 'currentGoal'));
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'users', userId, 'goal', 'currentGoal'));
+            } catch (error) {
+                console.error("Error al eliminar la meta:", error);
+                showErrorModal(`No se pudo eliminar la meta: ${error.message}`);
+            }
         }
 
         // --- EVENT LISTENERS ---
         addTransactionBtn.addEventListener('click', showModal);
         cancelBtn.addEventListener('click', hideModal);
+        closeErrorModalBtn.addEventListener('click', hideErrorModal);
 
         transactionForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<div class="spinner"></div>';
+
             const newTransaction = {
                 id: new Date().getTime(),
                 description: document.getElementById('description').value,
@@ -369,7 +444,9 @@
                 category: categorySelect.value
             };
             await addTransactionToDB(newTransaction);
-            hideModal();
+            
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Agregar';
         });
         
         typeSelect.addEventListener('change', () => {
@@ -387,6 +464,10 @@
 
         goalSection.addEventListener('submit', async (e) => {
             e.preventDefault();
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<div class="spinner"></div>';
+
             if (e.target.id === 'goal-form') {
                 const newGoal = {
                     name: document.getElementById('goal-name').value,
@@ -396,20 +477,22 @@
                 await setGoalInDB(newGoal);
             } else if (e.target.id === 'add-savings-form') {
                 const amount = +document.getElementById('savings-amount').value;
-                if(amount <= 0) return;
-                
-                const savingsTransaction = {
-                    id: new Date().getTime(),
-                    description: `Aportación a meta: ${savingsGoal.name}`,
-                    amount,
-                    type: 'expense',
-                    category: 'Ahorro'
-                };
-                await addTransactionToDB(savingsTransaction);
-                
-                const updatedGoal = { ...savingsGoal, saved: savingsGoal.saved + amount };
-                await setGoalInDB(updatedGoal);
+                if(amount > 0 && savingsGoal) {
+                    const savingsTransaction = {
+                        id: new Date().getTime(),
+                        description: `Aportación a meta: ${savingsGoal.name}`,
+                        amount,
+                        type: 'expense',
+                        category: 'Ahorro'
+                    };
+                    await addTransactionToDB(savingsTransaction);
+                    
+                    const updatedGoal = { ...savingsGoal, saved: savingsGoal.saved + amount };
+                    await setGoalInDB(updatedGoal);
+                }
             }
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = e.target.id === 'goal-form' ? 'Establecer Meta' : 'OK';
         });
         
         goalSection.addEventListener('click', (e) => {
@@ -423,7 +506,7 @@
         // --- INICIALIZACIÓN DE LA APP ---
         const startApp = (userCredential) => {
             userId = userCredential.user.uid;
-            document.getElementById('user-id').textContent = userId.substring(0, 8) + '...';
+            document.getElementById('user-id').textContent = userId;
             document.getElementById('loading-screen').classList.add('hidden');
             document.getElementById('app-container').classList.remove('hidden');
             document.getElementById('add-transaction-btn').classList.remove('hidden');
@@ -432,20 +515,21 @@
 
         const handleAuthError = (error) => {
             console.error("Error de autenticación:", error);
-            const loadingScreen = document.getElementById('loading-screen');
-            let userMessage = "No se pudo autenticar con el servidor. Por favor, recarga la página.";
+            const loadingTitle = document.getElementById('loading-title');
+            const loadingMessage = document.getElementById('loading-message');
+            const loadingErrorCode = document.getElementById('loading-error-code');
+            
+            loadingTitle.textContent = 'Error de Autenticación';
+            loadingTitle.classList.add('text-red-600');
 
             if (error.code === 'auth/admin-restricted-operation') {
-                userMessage = "Esta operación está restringida. Por favor, ve a tu Consola de Firebase -> Authentication -> Sign-in method y asegúrate de que el proveedor 'Anónimo' esté habilitado.";
+                loadingMessage.textContent = "Esta operación está restringida. Por favor, ve a tu Consola de Firebase -> Authentication -> Sign-in method y asegúrate de que el proveedor 'Anónimo' esté habilitado.";
             } else if (error.code === 'auth/api-key-not-valid') {
-                userMessage = "La clave de API no es válida. Por favor, verifica que la configuración de Firebase en tu código sea correcta.";
+                loadingMessage.textContent = "La clave de API no es válida. Por favor, verifica que la configuración de Firebase en tu código sea correcta.";
+            } else {
+                loadingMessage.textContent = "No se pudo autenticar con el servidor. Por favor, recarga la página.";
             }
-
-            loadingScreen.innerHTML = `
-                <h2 class="text-2xl font-bold text-red-600">Error de Autenticación</h2>
-                <p class="text-gray-600 mt-2">${userMessage}</p>
-                <p class="text-xs text-gray-400 mt-4 font-mono">Código de error: ${error.code}</p>
-            `;
+            loadingErrorCode.textContent = `Código de error: ${error.code}`;
         };
         
         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
